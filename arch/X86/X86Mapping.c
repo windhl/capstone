@@ -2762,6 +2762,8 @@ static struct insn_reg2 insn_regs_intel2[] = {
 	{ X86_INVLPGA64, X86_REG_RAX, X86_REG_ECX, CS_AC_READ, CS_AC_READ },
 };
 
+static struct insn_reg insn_regs_att_sorted [ARR_SIZE(insn_regs_att)];
+
 static struct insn_reg insn_regs_intel_sorted [ARR_SIZE(insn_regs_intel)];
 
 static int regs_cmp(const void *a, const void *b)
@@ -2771,6 +2773,7 @@ static int regs_cmp(const void *a, const void *b)
 	return (l - r);
 }
 
+static bool att_regs_sorted = false;
 static bool intel_regs_sorted = false;
 // return register of given instruction id
 // return 0 if not found
@@ -2852,14 +2855,34 @@ bool X86_insn_reg_att2(unsigned int id, x86_reg *reg1, enum cs_ac_type *access1,
 
 x86_reg X86_insn_reg_att(unsigned int id, enum cs_ac_type *access)
 {
-	unsigned int i;
+	int first = 0;
+	int last = ARR_SIZE(insn_regs_att) - 1;
+	int mid = ARR_SIZE(insn_regs_att) / 2;
 
-	for (i = 0; i < ARR_SIZE(insn_regs_att); i++) {
-		if (insn_regs_att[i].insn == id) {
-            if (access)
-                *access = insn_regs_intel[i].access;
-			return insn_regs_att[i].reg;
+	if (!att_regs_sorted) {
+		memcpy (insn_regs_att_sorted, insn_regs_att,
+				sizeof(insn_regs_att_sorted));
+		qsort (insn_regs_att_sorted,
+				ARR_SIZE(insn_regs_att_sorted),
+				sizeof(struct insn_reg), regs_cmp);
+		att_regs_sorted = true;
+	}
+
+    int counter = 0;
+
+	while (first <= last) {
+        counter += 1;
+		if (insn_regs_att_sorted[mid].insn < id) {
+			first = mid + 1;
+		} else if (insn_regs_att_sorted[mid].insn == id) {
+			if (access) {
+				*access = insn_regs_att_sorted[mid].access;
+			}
+			return insn_regs_att_sorted[mid].reg;
+		} else {
+			last = mid - 1;
 		}
+		mid = (first + last) / 2;
 	}
 
 	// not found
