@@ -81,9 +81,7 @@ def build_libraries(libraries):
             shutil.copy(PATH_LIB32, "capstone")
             return
 
-    # build library from source if src/ is existent
-    if not os.path.exists('src'):
-        copy_sources()
+    copy_sources()
 
     for (lib_name, build_info) in libraries:
         log.info("building '%s' library", lib_name)
