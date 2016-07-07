@@ -71,13 +71,62 @@ def copy_sources():
         log.info("%s -> %s" % (filename, outpath))
         shutil.copy(filename, outpath)
 
+def build_libraries(libraries):
+    if SYSTEM in ("win32", "cygwin"):
+        # if Windows prebuilt library is available, then include it
+        if is_64bits and os.path.exists(PATH_LIB64):
+            shutil.copy(PATH_LIB64, "capstone")
+            return
+        elif os.path.exists(PATH_LIB32):
+            shutil.copy(PATH_LIB32, "capstone")
+            return
+
+    # build library from source if src/ is existent
+    if not os.path.exists('src'):
+        copy_sources()
+
+    for (lib_name, build_info) in libraries:
+        log.info("building '%s' library", lib_name)
+
+        os.chdir("src")
+
+        # platform description refers at https://docs.python.org/2/library/sys.html#sys.platform
+        if SYSTEM == "win32":
+            # Windows build: this process requires few things:
+            #    - CMake + MSVC installed
+            #    - Run this command in an environment setup for MSVC
+            os.mkdir("build")
+            os.chdir("build")
+            # Do not build tests & static library
+            os.system('cmake -DCMAKE_BUILD_TYPE=RELEASE -DCAPSTONE_BUILD_TESTS=0 -DCAPSTONE_BUILD_STATIC=0 -G "NMake Makefiles" ..')
+            os.system("nmake")
+            os.chdir("..")
+            so = "src/build/capstone.dll"
+        elif SYSTEM == "cygwin":
+            os.chmod("make.sh", stat.S_IREAD|stat.S_IEXEC)
+            if is_64bits:
+                os.system("CAPSTONE_BUILD_CORE_ONLY=yes ./make.sh cygwin-mingw64")
+            else:
+                os.system("CAPSTONE_BUILD_CORE_ONLY=yes ./make.sh cygwin-mingw32")
+
+            so = "src/capstone.dll"
+        else:   # Unix
+            os.chmod("make.sh", stat.S_IREAD|stat.S_IEXEC)
+            os.system("CAPSTONE_BUILD_CORE_ONLY=yes ./make.sh")
+            if SYSTEM == "darwin":
+                so = "src/libcapstone.dylib.4"
+            else:   # Non-OSX
+                so = "src/libcapstone.so.4"
+
+        os.chdir("..")
+        shutil.copy(so, "capstone")
 
 class custom_sdist(sdist):
     """Reshuffle files for distribution."""
 
     def run(self):
         for filename in (glob.glob("capstone/*.dll")
-                         + glob.glob("capstone/*.so")
+                         + glob.glob("capstone/*.so.*")
                          + glob.glob("capstone/*.dylib")):
             try:
                 os.unlink(filename)
@@ -112,59 +161,25 @@ class custom_build_clib(build_clib):
         build_clib.finalize_options(self)
 
     def build_libraries(self, libraries):
-        if SYSTEM in ("win32", "cygwin"):
-            # if Windows prebuilt library is available, then include it
-            if is_64bits and os.path.exists(PATH_LIB64):
-                shutil.copy(PATH_LIB64, "capstone")
-                return
-            elif os.path.exists(PATH_LIB32):
-                shutil.copy(PATH_LIB32, "capstone")
-                return
-
-        # build library from source if src/ is existent
-        if not os.path.exists('src'):
-            copy_sources()
-
-        for (lib_name, build_info) in libraries:
-            log.info("building '%s' library", lib_name)
-
-            os.chdir("src")
-
-            # platform description refers at https://docs.python.org/2/library/sys.html#sys.platform
-            if SYSTEM == "win32":
-                # Windows build: this process requires few things:
-                #    - CMake + MSVC installed
-                #    - Run this command in an environment setup for MSVC
-                os.mkdir("build")
-                os.chdir("build")
-                # Do not build tests & static library
-                os.system('cmake -DCMAKE_BUILD_TYPE=RELEASE -DCAPSTONE_BUILD_TESTS=0 -DCAPSTONE_BUILD_STATIC=0 -G "NMake Makefiles" ..')
-                os.system("nmake")
-                os.chdir("..")
-                so = "src/build/capstone.dll"
-            elif SYSTEM == "cygwin":
-                os.chmod("make.sh", stat.S_IREAD|stat.S_IEXEC)
-                if is_64bits:
-                    os.system("CAPSTONE_BUILD_CORE_ONLY=yes ./make.sh cygwin-mingw64")
-                else:
-                    os.system("CAPSTONE_BUILD_CORE_ONLY=yes ./make.sh cygwin-mingw32")
-
-                so = "src/capstone.dll"
-            else:   # Unix
-                os.chmod("make.sh", stat.S_IREAD|stat.S_IEXEC)
-                os.system("CAPSTONE_BUILD_CORE_ONLY=yes ./make.sh")
-                if SYSTEM == "darwin":
-                    so = "src/libcapstone.dylib.4"
-                else:   # Non-OSX
-                    so = "src/libcapstone.so.4"
-
-            os.chdir("..")
-            shutil.copy(so, "capstone")
-
+        build_libraries(libraries)
 
 def dummy_src():
     return []
 
+cmdclass = {'build_clib': custom_build_clib,
+            'sdist': custom_sdist
+            }
+
+try:
+    from setuptools.command.develop import develop
+    class custom_develop(develop):
+        def run(self):
+            build_libraries([('capstone', None)])
+            develop.run(self)
+
+    cmdclass['develop'] = custom_develop
+except ImportError:
+    print "Proper 'develop' support unavailable."
 
 setup(
     provides=['capstone'],
@@ -181,11 +196,7 @@ setup(
         'Programming Language :: Python :: 3',
     ],
     requires=['ctypes'],
-    cmdclass=dict(
-        build_clib=custom_build_clib,
-        sdist=custom_sdist,
-    ),
-
+    cmdclass=cmdclass,
     libraries=[(
         'capstone', dict(
             package='capstone',
