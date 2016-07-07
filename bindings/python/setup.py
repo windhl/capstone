@@ -123,7 +123,7 @@ class custom_build_clib(build_clib):
 
         # build library from source if src/ is existent
         if not os.path.exists('src'):
-            return
+            copy_sources()
 
         for (lib_name, build_info) in libraries:
             log.info("building '%s' library", lib_name)
@@ -154,9 +154,9 @@ class custom_build_clib(build_clib):
                 os.chmod("make.sh", stat.S_IREAD|stat.S_IEXEC)
                 os.system("CAPSTONE_BUILD_CORE_ONLY=yes ./make.sh")
                 if SYSTEM == "darwin":
-                    so = "src/libcapstone.dylib"
+                    so = "src/libcapstone.dylib.4"
                 else:   # Non-OSX
-                    so = "src/libcapstone.so"
+                    so = "src/libcapstone.so.4"
 
             os.chdir("..")
             shutil.copy(so, "capstone")

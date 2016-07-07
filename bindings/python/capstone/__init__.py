@@ -234,7 +234,7 @@ if not hasattr(sys.modules[__name__], '__file__'):
     __file__ = inspect.getfile(inspect.currentframe())
 
 _lib_path = split(__file__)[0]
-_all_libs = ['capstone.dll', 'libcapstone.so', 'libcapstone.dylib']
+_all_libs = ['capstone.dll', 'libcapstone.so.4', 'libcapstone.4.dylib']
 _found = False
 
 for _lib in _all_libs:
