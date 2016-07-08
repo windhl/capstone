@@ -69,7 +69,7 @@ build_iOS() {
 
 build() {
   [ "$UNAME" = Darwin ] && LIBARCHS="i386 x86_64"
-  ${MAKE} clean
+  #${MAKE} clean
   ${MAKE} $*
 }
 

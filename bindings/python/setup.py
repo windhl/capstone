@@ -24,16 +24,6 @@ if os.path.exists(PATH_LIB64) and os.path.exists(PATH_LIB32):
 SYSTEM = sys.platform
 VERSION = '4.0'
 
-# virtualenv breaks import, but get_python_lib() will work.
-SITE_PACKAGES = os.path.join(get_python_lib(), "capstone")
-if "--user" in sys.argv:
-    try:
-        from site import getusersitepackages
-        SITE_PACKAGES = os.path.join(getusersitepackages(), "capstone")
-    except ImportError:
-        pass
-
-
 # adapted from commit e504b81 of Nguyen Tan Cong
 # Reference: https://docs.python.org/2/library/platform.html#cross-platform
 is_64bits = sys.maxsize > 2**32
@@ -81,12 +71,12 @@ def build_libraries(libraries):
             shutil.copy(PATH_LIB32, "capstone")
             return
 
-    copy_sources()
-
     for (lib_name, build_info) in libraries:
         log.info("building '%s' library", lib_name)
 
-        os.chdir("src")
+        old_dir = os.getcwd()
+        build_dir = 'src' if os.path.exists('src') else '../..'
+        os.chdir(build_dir)
 
         # platform description refers at https://docs.python.org/2/library/sys.html#sys.platform
         if SYSTEM == "win32":
@@ -99,7 +89,7 @@ def build_libraries(libraries):
             os.system('cmake -DCMAKE_BUILD_TYPE=RELEASE -DCAPSTONE_BUILD_TESTS=0 -DCAPSTONE_BUILD_STATIC=0 -G "NMake Makefiles" ..')
             os.system("nmake")
             os.chdir("..")
-            so = "src/build/capstone.dll"
+            so = "build/capstone.dll"
         elif SYSTEM == "cygwin":
             os.chmod("make.sh", stat.S_IREAD|stat.S_IEXEC)
             if is_64bits:
@@ -107,24 +97,24 @@ def build_libraries(libraries):
             else:
                 os.system("CAPSTONE_BUILD_CORE_ONLY=yes ./make.sh cygwin-mingw32")
 
-            so = "src/capstone.dll"
+            so = "capstone.dll"
         else:   # Unix
             os.chmod("make.sh", stat.S_IREAD|stat.S_IEXEC)
             os.system("CAPSTONE_BUILD_CORE_ONLY=yes ./make.sh")
             if SYSTEM == "darwin":
-                so = "src/libcapstone.dylib.4"
+                so = "libcapstone.dylib.4"
             else:   # Non-OSX
-                so = "src/libcapstone.so.4"
+                so = "libcapstone.so.4"
 
-        os.chdir("..")
-        shutil.copy(so, "capstone")
+        os.chdir(old_dir)
+        shutil.copy(os.path.join(build_dir, so), "capstone")
 
 class custom_sdist(sdist):
     """Reshuffle files for distribution."""
 
     def run(self):
         for filename in (glob.glob("capstone/*.dll")
-                         + glob.glob("capstone/*.so.*")
+                         + glob.glob("capstone/*.so*")
                          + glob.glob("capstone/*.dylib")):
             try:
                 os.unlink(filename)
