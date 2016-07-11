@@ -99,7 +99,7 @@ def build_libraries(libraries):
 
             so = "capstone.dll"
         else:   # Unix
-            os.chmod("make.sh", stat.S_IREAD|stat.S_IEXEC)
+            #os.chmod("make.sh", stat.S_IREAD|stat.S_IEXEC)
             os.system("CAPSTONE_BUILD_CORE_ONLY=yes ./make.sh")
             if SYSTEM == "darwin":
                 so = "libcapstone.dylib.4"
@@ -194,6 +194,6 @@ setup(
     zip_safe=False,
     include_package_data=True,
     package_data={
-        "capstone": ["*.so", "*.dll", "*.dylib"],
+        "capstone": ["*.so.*", "*.dll", "*.dylib"],
     }
 )
