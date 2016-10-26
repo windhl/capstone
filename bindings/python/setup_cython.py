@@ -124,7 +124,7 @@ setup(
     provides     = ['capstone'],
     package_dir  = {'capstone' : 'pyx'},
     packages     = ['capstone'],
-    name         = 'capstone',
+    name         = 'capstone4',
     version      = VERSION,
     cmdclass     = {'build_ext': build_ext, 'build': custom_build},
     ext_modules  = ext_modules,
